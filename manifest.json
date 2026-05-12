@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "BGG Rank Enricher",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Displays BoardGameGeek rankings on board game shop pages.",
   "permissions": ["storage"],
   "host_permissions": [
-    "https://www.boardgamegeek.com/*"
+    "https://www.boardgamegeek.com/*",
+    "https://boardgamegeek.com/*"
   ],
   "background": {
     "service_worker": "src/background/service-worker.ts",

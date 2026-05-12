@@ -1,6 +1,6 @@
 {
   "name": "bgg-rank-extension",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,9 @@
     "lint:fix": "eslint src --fix",
     "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "clean": "rm -rf dist",
+    "rebuild": "npm run clean && npm run build"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.4.0",

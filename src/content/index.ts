@@ -1,4 +1,6 @@
-export function detectAndMarkTitle(): void {
+import type { BggLookupRequest, BggLookupResponse } from '$shared/bgg-messages';
+
+export async function detectAndMarkTitle(): Promise<void> {
   const element: HTMLElement | null =
     document.querySelector('h1.product-title') ?? document.querySelector('h1');
 
@@ -14,9 +16,50 @@ export function detectAndMarkTitle(): void {
     return;
   }
 
+  // Story 2.1 — log the detected title
   console.log(title);
+  // Story 2.2 — visually mark the detected title element
   element.style.textDecoration = 'underline';
   element.style.textDecorationColor = 'blue';
+
+  // Story 4.1 — request BGG rating from the service worker
+  let response: BggLookupResponse;
+  try {
+    response = await chrome.runtime.sendMessage<BggLookupRequest, BggLookupResponse>({
+      type: 'BGG_RATING_LOOKUP',
+      title,
+    });
+  } catch (err) {
+    console.warn('[BGG Enricher] Rating lookup failed: could not reach service worker', err);
+    return;
+  }
+
+  if (!response) {
+    console.warn('[BGG Enricher] Rating lookup failed: no response from service worker');
+    return;
+  }
+
+  if (response.ok) {
+    injectRatingSpan(element, response.rating);
+  } else if (response.reason === 'CLOUDFLARE_BLOCK') {
+    console.warn('[BGG Enricher] Rating lookup blocked: please visit boardgamegeek.com in your browser first');
+  } else {
+    console.warn(`[BGG Enricher] Rating lookup failed: ${response.reason}`);
+  }
 }
 
-detectAndMarkTitle();
+function injectRatingSpan(element: HTMLElement, rating: string): void {
+  if (element.nextElementSibling?.hasAttribute('data-bgg-rating')) {
+    return;
+  }
+
+  const span = document.createElement('span');
+  span.setAttribute('data-bgg-rating', '');
+  span.textContent = `(${rating})`;
+  span.style.fontFamily = 'inherit';
+  span.style.fontSize = 'inherit';
+  span.style.fontWeight = 'inherit';
+  element.insertAdjacentElement('afterend', span);
+}
+
+void detectAndMarkTitle();
