@@ -11,4 +11,4 @@
 
 ## Epic E2E Test
 
-- [ ] **Epic E2E Test**: Author and run an E2E smoke test (Playwright) that loads a Philibertnet product page in the browser with the extension installed from the built artifact, and confirms the extension version reported in `chrome.runtime.getManifest().version` matches `"1.0.0"`.
+- [x] **Epic E2E Test**: Author and run an E2E smoke test (Playwright) that loads a Philibertnet product page in the browser with the extension installed from the built artifact, and confirms the extension version reported in `chrome.runtime.getManifest().version` matches `"1.0.0"`.

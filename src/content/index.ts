@@ -5,19 +5,19 @@ export async function detectAndMarkTitle(): Promise<void> {
     document.querySelector('h1.product-title') ?? document.querySelector('h1');
 
   if (!element) {
-    console.warn('BGG Rank Enricher: product title element not found');
+    console.warn('[BGG Rank Enricher] product title element not found');
     return;
   }
 
   const title = element.textContent?.trim() ?? '';
 
   if (title === '') {
-    console.warn('BGG Rank Enricher: product title element not found');
+    console.warn('[BGG Rank Enricher] product title is empty');
     return;
   }
 
-  // Story 2.1 — log the detected title
   console.log(title);
+
   // Story 2.2 — visually mark the detected title element
   element.style.textDecoration = 'underline';
   element.style.textDecorationColor = 'blue';

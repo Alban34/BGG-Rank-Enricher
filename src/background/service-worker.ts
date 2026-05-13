@@ -58,20 +58,32 @@ export async function searchBgg(title: string): Promise<SearchResult> {
     if (response.status === 403) {
       return { ok: false, reason: 'CLOUDFLARE_BLOCK' };
     }
-    if (response.status < 200 || response.status > 299) {
+    if (!response.ok) {
       return { ok: false, reason: 'API_ERROR' };
     }
-    const html = await response.text();
+    let html: string;
+    try {
+      html = await response.text();
+    } catch {
+      return { ok: false, reason: 'NETWORK_ERROR' };
+    }
     const id = findBestBggId(html, titleToSlug(candidate));
     if (id !== null) {
       return { ok: true, id };
     }
-    // NOT_FOUND — try stripping the rightmost " - <suffix>" segment
+    // NOT_FOUND — try stripping the rightmost " - <suffix>" segment first,
+    // then ordinal edition suffixes (e.g. "2nd Edition", "3rd Edition")
     const dashIdx = candidate.lastIndexOf(' - ');
-    if (dashIdx === -1) {
-      return { ok: false, reason: 'NOT_FOUND' };
+    if (dashIdx !== -1) {
+      candidate = candidate.slice(0, dashIdx);
+      continue;
     }
-    candidate = candidate.slice(0, dashIdx);
+    const editionMatch = candidate.match(/^(.+?)\s+\d+(?:st|nd|rd|th)\s+[Ee]dition$/);
+    if (editionMatch) {
+      candidate = editionMatch[1].trim();
+      continue;
+    }
+    return { ok: false, reason: 'NOT_FOUND' };
   }
 }
 
@@ -88,10 +100,15 @@ export async function fetchBggRating(id: string): Promise<BggLookupResponse> {
   if (response.status === 403) {
     return { ok: false, reason: 'CLOUDFLARE_BLOCK' };
   }
-  if (response.status < 200 || response.status > 299) {
+  if (!response.ok) {
     return { ok: false, reason: 'API_ERROR' };
   }
-  const html = await response.text();
+  let html: string;
+  try {
+    html = await response.text();
+  } catch {
+    return { ok: false, reason: 'NETWORK_ERROR' };
+  }
   const match = html.match(/"average":\s*"([\d.]+)"/);
   if (!match) {
     return { ok: false, reason: 'PARSE_ERROR' };
