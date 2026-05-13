@@ -17,5 +17,10 @@ export default defineConfig({
   },
   test: {
     exclude: ['tests/e2e/**', '**/node_modules/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov'],
+      reportsDirectory: 'coverage',
+    },
   },
 });

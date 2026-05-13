@@ -88,124 +88,130 @@ Call log:
   65  | 
   66  |     const page = await context.newPage();
   67  | 
-  68  |     page.on('console', (msg) => {
-  69  |       if (msg.type() === 'error') {
-  70  |         consoleErrors.push(msg.text());
-  71  |       }
-  72  |     });
+  68  |       // Visit BGG first so Cloudflare sets its bot-detection cookies in this
+  69  |       // browser profile — without these, service worker fetches return 403.
+  70  |       await page.goto('https://boardgamegeek.com/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  71  |       await page.waitForTimeout(2_000);
+  72  | 
   73  | 
-  74  |     page.on('pageerror', (err) => {
-  75  |       consoleErrors.push(`[pageerror] ${err.message}`);
-  76  |     });
-  77  | 
-  78  |     try {
-  79  |       await page.goto(PRODUCT_URL, {
-  80  |         waitUntil: 'domcontentloaded',
-  81  |         timeout: 30_000,
-  82  |       });
+  74  |     page.on('console', (msg) => {
+  75  |       if (msg.type() === 'error') {
+  76  |         consoleErrors.push(msg.text());
+  77  |       }
+  78  |     });
+  79  | 
+  80  |     page.on('pageerror', (err) => {
+  81  |       consoleErrors.push(`[pageerror] ${err.message}`);
+  82  |     });
   83  | 
-  84  |       // Allow up to 15 s for the service worker to query the BGG API and
-  85  |       // for the content script to inject the rating span into the DOM.
-> 86  |       await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
+  84  |     try {
+  85  |       await page.goto(PRODUCT_URL, {
+  86  |         waitUntil: 'domcontentloaded',
+  87  |         timeout: 30_000,
+  88  |       });
+  89  | 
+  90  |       // Allow up to 15 s for the service worker to query the BGG API and
+  91  |       // for the content script to inject the rating span into the DOM.
+> 92  |       await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
       |                  ^ TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.
-  87  | 
-  88  |       // 1. Assert textContent matches "(X.X)" — parenthesised rating to one decimal place
-  89  |       const textContent = await page.locator('[data-bgg-rating]').textContent();
-  90  |       expect(textContent).toMatch(/^\(\d+\.\d\)$/);
-  91  | 
-  92  |       // 2. Assert the span is the nextElementSibling of the h1
-  93  |       const isNextSibling = await page.evaluate(() => {
-  94  |         const h1El =
-  95  |           document.querySelector<HTMLElement>('h1.product-title') ??
-  96  |           document.querySelector<HTMLElement>('h1');
-  97  |         const sibling = h1El?.nextElementSibling;
-  98  |         return sibling?.hasAttribute('data-bgg-rating') ?? false;
-  99  |       });
-  100 |       expect(isNextSibling, 'rating span should be the nextElementSibling of the h1').toBe(true);
-  101 | 
-  102 |       // 3. Assert the span carries inline styles that mirror the title element
-  103 |       //    (font-family/font-size/font-weight all set to "inherit").
-  104 |       //    Inline style attributes are part of the shared DOM and are accessible
-  105 |       //    from the main world despite content-script isolation.
-  106 |       const spanInlineStyle = await page.evaluate(() => {
-  107 |         const span = document.querySelector<HTMLElement>('[data-bgg-rating]');
-  108 |         if (!span) return null;
-  109 |         return {
-  110 |           fontFamily: span.style.fontFamily,
-  111 |           fontSize: span.style.fontSize,
-  112 |           fontWeight: span.style.fontWeight,
-  113 |         };
-  114 |       });
-  115 |       expect(spanInlineStyle, 'span should have inline styles set').not.toBeNull();
-  116 |       expect(spanInlineStyle?.fontFamily).toBe('inherit');
-  117 |       expect(spanInlineStyle?.fontSize).toBe('inherit');
-  118 |       expect(spanInlineStyle?.fontWeight).toBe('inherit');
-  119 | 
-  120 |       // 4. No extension-originated errors or uncaught exceptions
-  121 |       const extensionErrors = consoleErrors.filter(
-  122 |         (msg) =>
-  123 |           msg.includes('BGG') ||
-  124 |           msg.includes('bgg-rank') ||
-  125 |           msg.toLowerCase().includes('uncaught'),
-  126 |       );
-  127 |       expect(
-  128 |         extensionErrors,
-  129 |         'Extension must not emit console.error or throw uncaught exceptions',
-  130 |       ).toHaveLength(0);
-  131 |     } finally {
-  132 |       await context.close();
-  133 |       rmSync(userDataDir, { recursive: true, force: true });
-  134 |     }
-  135 |   });
-  136 | 
-  137 |   test('does not inject a rating span when the page h1 is not a board game title', async () => {
-  138 |     const consoleWarnings: string[] = [];
-  139 | 
-  140 |     const userDataDir = mkdtempSync(join(tmpdir(), 'pw-ext-epic4-nospan-'));
-  141 |     const context = await chromium.launchPersistentContext(userDataDir, {
-  142 |       headless: false,
-  143 |       args: [
-  144 |         `--disable-extensions-except=${EXTENSION_DIR}`,
-  145 |         `--load-extension=${EXTENSION_DIR}`,
-  146 |       ],
-  147 |     });
-  148 | 
-  149 |     const page = await context.newPage();
-  150 | 
-  151 |     // Content-script console.warn calls appear in the page's DevTools console
-  152 |     // and are therefore captured by the Playwright console listener.
-  153 |     page.on('console', (msg) => {
-  154 |       if (msg.type() === 'warning') {
-  155 |         consoleWarnings.push(msg.text());
-  156 |       }
-  157 |     });
-  158 | 
-  159 |     try {
-  160 |       // Contact page — h1 is "Send us a message" which will not match any BGG title.
-  161 |       // The service worker will return { ok: false, reason: "NOT_FOUND" } and the
-  162 |       // content script will console.warn without injecting any span.
-  163 |       await page.goto(NON_PRODUCT_URL, {
-  164 |         waitUntil: 'domcontentloaded',
-  165 |         timeout: 30_000,
-  166 |       });
-  167 | 
-  168 |       // Allow 8 s: enough for the content script to run and for the BGG API
-  169 |       // round-trip to complete (or fail fast with NOT_FOUND).
-  170 |       await page.waitForTimeout(8_000);
-  171 | 
-  172 |       const spanCount = await page.locator('[data-bgg-rating]').count();
-  173 |       expect(
-  174 |         spanCount,
-  175 |         'No rating span should be injected when h1 is not a board game title',
-  176 |       ).toBe(0);
-  177 | 
-  178 |       const hasFailureWarning = consoleWarnings.some((msg) => /Rating lookup failed/.test(msg));
-  179 |       expect(
-  180 |         hasFailureWarning,
-  181 |         'console.warn should report "Rating lookup failed" when the title is not in BGG',
-  182 |       ).toBe(true);
-  183 |     } finally {
-  184 |       await context.close();
-  185 |       rmSync(userDataDir, { recursive: true, force: true });
-  186 |     }
+  93  | 
+  94  |       // 1. Assert textContent matches "(X.X)" — parenthesised rating to one decimal place
+  95  |       const textContent = await page.locator('[data-bgg-rating]').textContent();
+  96  |       expect(textContent).toMatch(/^\(\d+\.\d\)$/);
+  97  | 
+  98  |       // 2. Assert the span is the nextElementSibling of the h1
+  99  |       const isNextSibling = await page.evaluate(() => {
+  100 |         const h1El =
+  101 |           document.querySelector<HTMLElement>('h1.product-title') ??
+  102 |           document.querySelector<HTMLElement>('h1');
+  103 |         const sibling = h1El?.nextElementSibling;
+  104 |         return sibling?.hasAttribute('data-bgg-rating') ?? false;
+  105 |       });
+  106 |       expect(isNextSibling, 'rating span should be the nextElementSibling of the h1').toBe(true);
+  107 | 
+  108 |       // 3. Assert the span carries inline styles that mirror the title element
+  109 |       //    (font-family/font-size/font-weight all set to "inherit").
+  110 |       //    Inline style attributes are part of the shared DOM and are accessible
+  111 |       //    from the main world despite content-script isolation.
+  112 |       const spanInlineStyle = await page.evaluate(() => {
+  113 |         const span = document.querySelector<HTMLElement>('[data-bgg-rating]');
+  114 |         if (!span) return null;
+  115 |         return {
+  116 |           fontFamily: span.style.fontFamily,
+  117 |           fontSize: span.style.fontSize,
+  118 |           fontWeight: span.style.fontWeight,
+  119 |         };
+  120 |       });
+  121 |       expect(spanInlineStyle, 'span should have inline styles set').not.toBeNull();
+  122 |       expect(spanInlineStyle?.fontFamily).toBe('inherit');
+  123 |       expect(spanInlineStyle?.fontSize).toBe('inherit');
+  124 |       expect(spanInlineStyle?.fontWeight).toBe('inherit');
+  125 | 
+  126 |       // 4. No extension-originated errors or uncaught exceptions
+  127 |       const extensionErrors = consoleErrors.filter(
+  128 |         (msg) =>
+  129 |           msg.includes('BGG') ||
+  130 |           msg.includes('bgg-rank') ||
+  131 |           msg.toLowerCase().includes('uncaught'),
+  132 |       );
+  133 |       expect(
+  134 |         extensionErrors,
+  135 |         'Extension must not emit console.error or throw uncaught exceptions',
+  136 |       ).toHaveLength(0);
+  137 |     } finally {
+  138 |       await context.close();
+  139 |       rmSync(userDataDir, { recursive: true, force: true });
+  140 |     }
+  141 |   });
+  142 | 
+  143 |   test('does not inject a rating span when the page h1 is not a board game title', async () => {
+  144 |     const consoleWarnings: string[] = [];
+  145 | 
+  146 |     const userDataDir = mkdtempSync(join(tmpdir(), 'pw-ext-epic4-nospan-'));
+  147 |     const context = await chromium.launchPersistentContext(userDataDir, {
+  148 |       headless: false,
+  149 |       args: [
+  150 |         `--disable-extensions-except=${EXTENSION_DIR}`,
+  151 |         `--load-extension=${EXTENSION_DIR}`,
+  152 |       ],
+  153 |     });
+  154 | 
+  155 |     const page = await context.newPage();
+  156 | 
+  157 |       // Visit BGG first so Cloudflare sets its bot-detection cookies in this
+  158 |       // browser profile — without these, service worker fetches return 403.
+  159 |       await page.goto('https://boardgamegeek.com/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  160 |       await page.waitForTimeout(2_000);
+  161 | 
+  162 | 
+  163 |     // Content-script console.warn calls appear in the page's DevTools console
+  164 |     // and are therefore captured by the Playwright console listener.
+  165 |     page.on('console', (msg) => {
+  166 |       if (msg.type() === 'warning') {
+  167 |         consoleWarnings.push(msg.text());
+  168 |       }
+  169 |     });
+  170 | 
+  171 |     try {
+  172 |       // Contact page — h1 is "Send us a message" which will not match any BGG title.
+  173 |       // The service worker will return { ok: false, reason: "NOT_FOUND" } and the
+  174 |       // content script will console.warn without injecting any span.
+  175 |       await page.goto(NON_PRODUCT_URL, {
+  176 |         waitUntil: 'domcontentloaded',
+  177 |         timeout: 30_000,
+  178 |       });
+  179 | 
+  180 |       // Allow 8 s: enough for the content script to run and for the BGG API
+  181 |       // round-trip to complete (or fail fast with NOT_FOUND).
+  182 |       await page.waitForTimeout(8_000);
+  183 | 
+  184 |       const spanCount = await page.locator('[data-bgg-rating]').count();
+  185 |       expect(
+  186 |         spanCount,
+  187 |         'No rating span should be injected when h1 is not a board game title',
+  188 |       ).toBe(0);
+  189 | 
+  190 |       const hasFailureWarning = consoleWarnings.some((msg) => /Rating lookup failed/.test(msg));
+  191 |       expect(
+  192 |         hasFailureWarning,
 ```

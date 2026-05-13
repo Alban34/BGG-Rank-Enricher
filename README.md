@@ -1,5 +1,7 @@
 # BGG-Rank-Enricher
 
+[![CI](https://github.com/YOUR_GITHUB_USERNAME/BGG-Rank-Enricher/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB_USERNAME/BGG-Rank-Enricher/actions/workflows/ci.yml)
+
 A Chrome extension that enriches board game product pages on Philibertnet with BoardGameGeek community ratings, so you can see the BGG average score inline without leaving the shop.
 
 ## Installation
@@ -18,6 +20,8 @@ A Chrome extension that enriches board game product pages on Philibertnet with B
 
 - **Title detection** — When you open a Philibertnet product page, the content script looks for the board game title first in an `h1.product-title` element, then falls back to any `h1` on the page. As a visual debug marker, the detected title element is given a blue underline.
 - **Chrome messaging** — The content script forwards the detected title to the background service worker via `chrome.runtime.sendMessage`; no network requests are made from the content script itself.
+- **Title normalisation** — Before submitting a title to BGG, the service worker normalises it: Philibertnet-style spaced colons (` : `) are collapsed to a bare colon (`:`), runs of multiple spaces are reduced to one, and leading/trailing whitespace is trimmed. This is handled by the `normaliseTitle` utility in `src/shared/title-utils.ts`.
+- **Progressive title truncation** — If a BGG search for the full normalised title returns no results, the service worker strips the rightmost ` - <Suffix>` segment and retries. The loop continues until a match is found or no ` - ` separator remains. This allows expansion titles such as "Dune : Imperium - Immortality" to be resolved via the base-game entry "Dune: Imperium".
 - **HTML scraping with session cookies** — The service worker fetches BGG's search HTML page to resolve the title to a BGG game ID, then fetches the BGG board game HTML page to extract the average user rating from the embedded JSON. Both requests use `credentials: 'include'` so the user's existing BGG browser session cookies are forwarded, allowing the requests to pass Cloudflare.
 - **Inline rating injection** — On a successful lookup the content script injects a `<span data-bgg-rating>` element immediately after the title, displaying the rating in the format `(8.0)` with styling inherited from the title element.
 
@@ -49,3 +53,24 @@ npm test
 # Run end-to-end tests
 npm run test:e2e
 ```
+
+## CI & code quality
+
+Every push and pull request targeting `main` runs the [`ci` workflow](.github/workflows/ci.yml), which executes the following steps in order:
+
+1. Install dependencies (`npm ci`)
+2. Lint source files (`npm run lint`)
+3. Run unit and integration tests with coverage (`npm test -- --coverage`) — the LCOV report is written to `coverage/lcov.info`
+4. Build the extension (`npm run build`)
+5. Upload static analysis results to SonarCloud (non-blocking; `continue-on-error: true` is set so a SonarCloud outage cannot fail the build)
+
+### Maintainer setup
+
+Before the CI pipeline is fully operational, a repository maintainer must complete the following one-time steps:
+
+1. **Update the CI badge URL** in this README — replace `YOUR_GITHUB_USERNAME` in the badge at the top with the actual GitHub account or organisation name that hosts this repository.
+2. **Create a SonarCloud project** and note the project key and organisation slug from the SonarCloud dashboard.
+3. **Update `sonar-project.properties`** at the repository root — replace the two placeholder values:
+   - `sonar.projectKey=YOUR_SONARCLOUD_PROJECT_KEY` → your actual SonarCloud project key
+   - `sonar.organization=YOUR_SONARCLOUD_ORG` → your SonarCloud organisation slug
+4. **Add the `SONAR_TOKEN` secret** to the GitHub repository (Settings → Secrets and variables → Actions → New repository secret, name: `SONAR_TOKEN`). Obtain the token from your SonarCloud account under My Account → Security → Generate Token.
