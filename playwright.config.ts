@@ -8,4 +8,7 @@ export default defineConfig({
   // with headless: false explicitly.
   projects: [{ name: 'chromium' }],
   reporter: 'list',
+  // Run specs serially (workers: 1) to prevent concurrent `npm run build` calls
+  // from multiple beforeAll hooks writing to dist/ simultaneously.
+  workers: 1,
 });

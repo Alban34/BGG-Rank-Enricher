@@ -23,7 +23,7 @@ import { tmpdir } from 'os';
 
 const PROJECT_ROOT = resolve(process.cwd());
 const EXTENSION_DIR = resolve(PROJECT_ROOT, 'dist');
-const PRODUCT_URL = 'https://www.philibertnet.com/en/';
+const PRODUCT_URL = 'https://www.philibertnet.com/fr/matagot/73168-wingspan-3760146644991.html';
 
 test.describe('Epic 2 — Game Title Detection & Visual Confirmation', () => {
   test.beforeAll(() => {

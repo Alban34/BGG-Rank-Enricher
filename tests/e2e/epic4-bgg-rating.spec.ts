@@ -141,7 +141,7 @@ test.describe('Epic 4 — BGG Rating Lookup and In-Page Display', () => {
   });
 
   test('does not inject a rating span when the page h1 is not a board game title', async () => {
-    const consoleWarnings: string[] = [];
+    const consoleDebugMessages: string[] = [];
 
     const userDataDir = mkdtempSync(join(tmpdir(), 'pw-ext-epic4-nospan-'));
     const context = await chromium.launchPersistentContext(userDataDir, {
@@ -160,18 +160,18 @@ test.describe('Epic 4 — BGG Rating Lookup and In-Page Display', () => {
       await page.waitForTimeout(2_000);
 
 
-    // Content-script console.warn calls appear in the page's DevTools console
+    // Content-script console.debug calls appear in the page's DevTools console
     // and are therefore captured by the Playwright console listener.
     page.on('console', (msg) => {
-      if (msg.type() === 'warning') {
-        consoleWarnings.push(msg.text());
+      if (msg.type() === 'debug') {
+        consoleDebugMessages.push(msg.text());
       }
     });
 
     try {
-      // Contact page — h1 is "Send us a message" which will not match any BGG title.
-      // The service worker will return { ok: false, reason: "NOT_FOUND" } and the
-      // content script will console.warn without injecting any span.
+      // Contact page — URL does not match the \d+-slug.html pattern so the URL
+      // guard blocks execution and the content script emits console.debug
+      // 'Skipping non-product page' without injecting any span.
       await page.goto(NON_PRODUCT_URL, {
         waitUntil: 'domcontentloaded',
         timeout: 30_000,
@@ -187,10 +187,10 @@ test.describe('Epic 4 — BGG Rating Lookup and In-Page Display', () => {
         'No rating span should be injected when h1 is not a board game title',
       ).toBe(0);
 
-      const hasFailureWarning = consoleWarnings.some((msg) => /Rating lookup failed/.test(msg));
+      const hasSkipDebug = consoleDebugMessages.some((msg) => /Skipping non-product page/.test(msg));
       expect(
-        hasFailureWarning,
-        'console.warn should report "Rating lookup failed" when the title is not in BGG',
+        hasSkipDebug,
+        'console.debug should report "Skipping non-product page" when the URL guard blocks execution',
       ).toBe(true);
     } finally {
       await context.close();

@@ -18,6 +18,7 @@ A Chrome extension that enriches board game product pages on Philibertnet with B
 
 ## How it works
 
+- **URL guard** — Before attempting any title detection, the content script checks whether the current page URL matches the Philibertnet individual product-page pattern (a path segment of the form `/<numeric-SKU>-<slug>.html`, e.g. `/73168-wingspan-3760146644991.html`). On category or listing pages whose URLs do not match this pattern, the content script emits a `console.debug` message and exits immediately without modifying the DOM or making any network requests. If the URL check itself throws for any reason, the content script defaults to skipping (fail-safe).
 - **Title detection** — When you open a Philibertnet product page, the content script looks for the board game title first in an `h1.product-title` element, then falls back to any `h1` on the page. As a visual debug marker, the detected title element is given a blue underline.
 - **Chrome messaging** — The content script forwards the detected title to the background service worker via `chrome.runtime.sendMessage`; no network requests are made from the content script itself.
 - **Title normalisation** — Before submitting a title to BGG, the service worker normalises it: Philibertnet-style spaced colons (` : `) are collapsed to a bare colon (`:`), runs of multiple spaces are reduced to one, and leading/trailing whitespace is trimmed. This is handled by the `normaliseTitle` utility in `src/shared/title-utils.ts`.

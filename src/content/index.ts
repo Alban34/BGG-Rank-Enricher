@@ -1,4 +1,5 @@
 import type { BggLookupRequest, BggLookupResponse } from '$shared/bgg-messages';
+import { isProductPage } from '$shared/title-utils';
 
 export async function detectAndMarkTitle(): Promise<void> {
   const element: HTMLElement | null =
@@ -62,4 +63,12 @@ function injectRatingSpan(element: HTMLElement, rating: string): void {
   element.insertAdjacentElement('afterend', span);
 }
 
-void detectAndMarkTitle();
+try {
+  if (isProductPage(window.location.href)) {
+    void detectAndMarkTitle();
+  } else {
+    console.debug('[BGG Enricher] Skipping non-product page:', window.location.href);
+  }
+} catch (err) {
+  console.error('[BGG Enricher] Unexpected error in product-page guard:', err);
+}

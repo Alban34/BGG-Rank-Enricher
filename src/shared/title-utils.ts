@@ -16,3 +16,14 @@ export function normaliseTitle(title: string): string {
     .replace(/ {2,}/g, ' ')
     .trim();
 }
+
+const PRODUCT_PAGE_PATTERN = /\/\d+-[^/]+\.html$/;
+
+export function isProductPage(url: string): boolean {
+  try {
+    const { pathname } = new URL(url);
+    return PRODUCT_PAGE_PATTERN.test(pathname);
+  } catch {
+    return false;
+  }
+}
