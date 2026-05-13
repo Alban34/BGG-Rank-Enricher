@@ -1,13 +1,12 @@
 import { defineConfig } from 'vite';
-import { crx } from '@crxjs/vite-plugin';
+import webExtension from 'vite-plugin-web-extension';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resolve } from 'path';
-import manifest from './manifest.json' with { type: 'json' };
 
 export default defineConfig({
   plugins: [
     svelte(),
-    crx({ manifest }),
+    webExtension({ manifest: './manifest.json' }),
   ],
   resolve: {
     alias: {
