@@ -6,6 +6,7 @@ export interface BggLookupRequest {
 export interface BggLookupSuccess {
   ok: true;
   rating: string; // formatted to one decimal place, e.g. "8.0"
+  gameUrl: string; // canonical BGG game page URL, e.g. "https://boardgamegeek.com/boardgame/266192"
 }
 
 export interface BggLookupError {

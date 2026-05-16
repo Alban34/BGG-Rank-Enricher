@@ -11,7 +11,10 @@ export async function detectAndMarkTitle(): Promise<void> {
   let element: HTMLElement | null = findBestTitleElement(config.titleSelector);
 
   if (!element) {
+    // Some shops (SPA/hydrated pages) render the title after domcontentloaded.
+    // Always allow a short observer window before giving up.
     element = await waitForElement(config.titleSelector, 12_000);
+
     if (!element) {
       console.warn('[BGG Rank Enricher] product title element not found');
       return;
@@ -25,6 +28,7 @@ export async function detectAndMarkTitle(): Promise<void> {
     return;
   }
 
+  // Story 2.1 — log the detected, trimmed title once on successful detection.
   console.log(title);
 
   // Story 2.2 — visually mark the detected title element
@@ -53,7 +57,7 @@ export async function detectAndMarkTitle(): Promise<void> {
     const insertTarget = config.insertAfterSelector
       ? (document.querySelector<HTMLElement>(config.insertAfterSelector) ?? element)
       : element;
-    injectRatingSpan(insertTarget, response.rating);
+    injectRatingSpan(insertTarget, response.rating, response.gameUrl);
   } else if (response.reason === 'CLOUDFLARE_BLOCK') {
     console.warn('[BGG Enricher] Rating lookup blocked: please visit boardgamegeek.com in your browser first');
   } else {
@@ -76,41 +80,95 @@ function isVisible(el: HTMLElement): boolean {
   if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
     return false;
   }
-  const rect = el.getBoundingClientRect();
-  return rect.width > 0 && rect.height > 0;
+  return true;
 }
 
 function waitForElement(selector: string, timeout: number): Promise<HTMLElement | null> {
   return new Promise(resolve => {
-    const existing = findBestTitleElement(selector);
+    let settled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = (observer: MutationObserver | null): void => {
+      if (observer) {
+        observer.disconnect();
+      }
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const settle = (observer: MutationObserver | null, value: HTMLElement | null): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup(observer);
+      resolve(value);
+    };
+
+    const safeFind = (): HTMLElement | null => {
+      if (typeof document === 'undefined') {
+        return null;
+      }
+      try {
+        return findBestTitleElement(selector);
+      } catch {
+        return null;
+      }
+    };
+
+    const existing = safeFind();
     if (existing) {
-      resolve(existing);
+      settle(null, existing);
+      return;
+    }
+
+    if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') {
+      settle(null, null);
       return;
     }
 
     const observer = new MutationObserver(() => {
-      const el = findBestTitleElement(selector);
+      if (settled) {
+        return;
+      }
+      const el = safeFind();
       if (el) {
-        observer.disconnect();
-        resolve(el);
+        settle(observer, el);
+      } else if (typeof document === 'undefined') {
+        settle(observer, null);
       }
     });
-    observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(() => {
-      observer.disconnect();
-      resolve(null);
+
+    const observeTarget = document.body ?? document.documentElement;
+    if (!observeTarget) {
+      settle(observer, null);
+      return;
+    }
+
+    observer.observe(observeTarget, { childList: true, subtree: true });
+    timeoutId = setTimeout(() => {
+      settle(observer, null);
     }, timeout);
   });
 }
 
-function injectRatingSpan(element: HTMLElement, rating: string): void {
+function injectRatingSpan(element: Element, rating: string, gameUrl: string): void {
   if (element.nextElementSibling?.hasAttribute('data-bgg-rating')) {
     return;
   }
 
   const span = document.createElement('span');
   span.setAttribute('data-bgg-rating', '');
-  span.textContent = `(${rating})`;
+  span.append(document.createTextNode(`(BGG: ${rating}. `));
+  const link = document.createElement('a');
+  link.textContent = 'See more';
+  link.href = gameUrl;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  span.append(link);
+  span.append(document.createTextNode(')'));
   span.style.fontFamily = 'inherit';
   span.style.fontSize = 'inherit';
   span.style.fontWeight = 'inherit';

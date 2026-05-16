@@ -8,7 +8,7 @@
  *  3. Navigate to a live Philibertnet product page for Wingspan 2nd Edition
  *  4. Wait for the content script to inject a [data-bgg-rating] span
  *     (allows up to 15 s for the service worker to call the BGG API)
- *  5. Assert the span's textContent matches /^\(\d+\.\d\)$/
+ *  5. Assert the span text/link format matches the BGG label contract
  *  6. Assert the span is the nextElementSibling of h1.product-title
  *  7. Assert the span has inline styles font-family/font-size/font-weight: inherit
  *  8. Assert no extension-related console.error or uncaught exceptions
@@ -62,9 +62,11 @@ test.describe('Epic 4 — BGG Rating Lookup and In-Page Display', () => {
     // for the content script to inject the rating span into the DOM.
     await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
 
-    // 1. Assert textContent matches "(X.X)" — parenthesised rating to one decimal place
+    // 1. Assert text/link structure follows "(BGG: X.X. See more)"
     const textContent = await page.locator('[data-bgg-rating]').textContent();
-    expect(textContent).toMatch(/^\(\d+\.\d\)$/);
+    expect(textContent).toMatch(/^\(BGG:\s+[\d.]+\.\s+See more\)$/);
+    const linkHref = await page.locator('[data-bgg-rating] a').getAttribute('href');
+    expect(linkHref).toMatch(/^https:\/\/boardgamegeek\.com\/boardgame\/\d+$/);
 
     // 2. Assert the span is the nextElementSibling of the h1
     const isNextSibling = await page.evaluate(() => {

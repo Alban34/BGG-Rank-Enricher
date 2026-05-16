@@ -9,7 +9,7 @@
  *     (an expansion title whose raw h1 contains " : " and " - " separators)
  *  4. Wait for the content script to inject a [data-bgg-rating] span
  *     (allows up to 15 s for the service worker to resolve the title via truncation)
- *  5. Assert the span's textContent matches /^\(\d+\.\d\)$/
+ *  5. Assert the span text/link format matches the BGG label contract
  *  6. Regression: repeat the same assertion for a base-game page (Wingspan 2nd Edition)
  *     to confirm the truncation loop does not break existing behaviour
  *
@@ -45,7 +45,9 @@ test.describe('Epic 6 — Improved BGG Title Matching', () => {
     await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
 
     const textContent = await page.locator('[data-bgg-rating]').textContent();
-    expect(textContent).toMatch(/^\(\d+\.\d\)$/);
+    expect(textContent).toMatch(/^\(BGG:\s+[\d.]+\.\s+See more\)$/);
+    const linkHref = await page.locator('[data-bgg-rating] a').getAttribute('href');
+    expect(linkHref).toMatch(/^https:\/\/boardgamegeek\.com\/boardgame\/\d+$/);
   });
 
   test('regression: injects BGG rating span for a base-game product page (Dune: Imperium)', async ({ extContext }) => {
@@ -62,6 +64,8 @@ test.describe('Epic 6 — Improved BGG Title Matching', () => {
     await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
 
     const textContent = await page.locator('[data-bgg-rating]').textContent();
-    expect(textContent).toMatch(/^\(\d+\.\d\)$/);
+    expect(textContent).toMatch(/^\(BGG:\s+[\d.]+\.\s+See more\)$/);
+    const linkHref = await page.locator('[data-bgg-rating] a').getAttribute('href');
+    expect(linkHref).toMatch(/^https:\/\/boardgamegeek\.com\/boardgame\/\d+$/);
   });
 });

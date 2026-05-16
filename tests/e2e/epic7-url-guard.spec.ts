@@ -33,6 +33,8 @@ test.describe('Epic 7 — URL-Based Product-Page Guard', () => {
     await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
 
     const textContent = await page.locator('[data-bgg-rating]').textContent();
-    expect(textContent).toMatch(/^\(\d+\.\d\)$/);
+    expect(textContent).toMatch(/^\(BGG:\s+[\d.]+\.\s+See more\)$/);
+    const linkHref = await page.locator('[data-bgg-rating] a').getAttribute('href');
+    expect(linkHref).toMatch(/^https:\/\/boardgamegeek\.com\/boardgame\/\d+$/);
   });
 });

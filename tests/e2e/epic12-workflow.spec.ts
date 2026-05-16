@@ -14,10 +14,7 @@ test.describe('Epic 12 — Okkazeo BGG Enrichment Workflow', () => {
       timeout: 30_000,
     });
 
-    await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
-
-    const spans = page.locator('[data-bgg-rating]');
-    expect(await spans.count()).toBeGreaterThan(0);
+    await expect(page.locator('[data-bgg-rating]').first()).toBeVisible({ timeout: 15_000 });
   });
 
   test('does not inject BGG rating span on an okkazeo.com category page', async ({ extContext }) => {
@@ -30,8 +27,6 @@ test.describe('Epic 12 — Okkazeo BGG Enrichment Workflow', () => {
       timeout: 30_000,
     });
 
-    await page.waitForTimeout(5_000);
-
-    await expect(page.locator('[data-bgg-rating]')).toHaveCount(0);
+    await expect(page.locator('[data-bgg-rating]')).toHaveCount(0, { timeout: 5_000 });
   });
 });

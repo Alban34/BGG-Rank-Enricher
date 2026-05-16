@@ -15,23 +15,19 @@ test.describe('Epic 9 — Okkazeo (9.2)', () => {
       timeout: 30_000,
     });
 
-    await page.waitForFunction(
-      (selector) => {
-        const el = document.querySelector<HTMLElement>(selector);
-        if (!el) {
-          return false;
+    const title = page.locator(TITLE_SELECTOR).first();
+    await expect(title).toBeVisible({ timeout: 12_000 });
+
+    await expect
+      .poll(
+        async () =>
+          title.evaluate((el) => window.getComputedStyle(el as HTMLElement).textDecoration),
+        {
+          timeout: 12_000,
+          message: 'Expected product title to become underlined after content-script enrichment.',
         }
-
-        return window.getComputedStyle(el).textDecoration.includes('underline');
-      },
-      TITLE_SELECTOR,
-      { timeout: 12_000 }
-    );
-
-    const textDecoration = await page.locator(TITLE_SELECTOR).first().evaluate(
-      (el: HTMLElement) => window.getComputedStyle(el).textDecoration
-    );
-    expect(textDecoration).toContain('underline');
+      )
+      .toContain('underline');
   });
 
   test('does not inject BGG rating span on a category page', async ({ extContext }) => {
@@ -44,8 +40,6 @@ test.describe('Epic 9 — Okkazeo (9.2)', () => {
       timeout: 30_000,
     });
 
-    await page.waitForTimeout(5_000);
-
-    await expect(page.locator('[data-bgg-rating]')).toHaveCount(0);
+    await expect(page.locator('[data-bgg-rating]')).toHaveCount(0, { timeout: 5_000 });
   });
 });

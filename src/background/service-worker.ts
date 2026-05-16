@@ -4,6 +4,14 @@ import { normaliseTitle } from '$shared/title-utils';
 interface SearchSuccess { ok: true; id: string }
 type SearchResult = SearchSuccess | BggLookupError;
 
+function isBggLookupRequest(message: unknown): message is BggLookupRequest {
+  if (!message || typeof message !== 'object') {
+    return false;
+  }
+  const candidate = message as Partial<BggLookupRequest>;
+  return candidate.type === 'BGG_RATING_LOOKUP' && typeof candidate.title === 'string';
+}
+
 /**
  * Converts a normalised title to a slug comparable to BGG URL path segments.
  * e.g. "Dune: Imperium - Immortality" → "dune-imperium-immortality"
@@ -122,8 +130,8 @@ export async function fetchBggRating(id: string): Promise<BggLookupResponse> {
 
 if (typeof chrome !== 'undefined') {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    const req = message as BggLookupRequest;
-    if (req.type !== 'BGG_RATING_LOOKUP') return;
+    if (!isBggLookupRequest(message)) return;
+    const req = message;
     void (async () => {
       try {
         const searchResult = await searchBgg(req.title);
@@ -132,7 +140,13 @@ if (typeof chrome !== 'undefined') {
           return;
         }
         const ratingResult = await fetchBggRating(searchResult.id);
-        sendResponse(ratingResult);
+        if (!ratingResult.ok) {
+          sendResponse(ratingResult);
+          return;
+        }
+
+        const gameUrl = `https://boardgamegeek.com/boardgame/${searchResult.id}`;
+        sendResponse({ ...ratingResult, gameUrl });
       } catch {
         sendResponse({ ok: false, reason: 'PARSE_ERROR' } satisfies BggLookupError);
       }

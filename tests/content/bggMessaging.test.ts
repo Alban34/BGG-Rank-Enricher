@@ -24,14 +24,14 @@ afterEach(() => {
 
 describe('Story 4.1 — sendMessage contract', () => {
   it('4.1.1 — calls sendMessage exactly once with BGG_RATING_LOOKUP and detected title', async () => {
-    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0' });
+    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0', gameUrl: 'https://boardgamegeek.com/boardgame/266192' });
     await detectAndMarkTitle();
     expect(sendMessageMock).toHaveBeenCalledOnce();
     expect(sendMessageMock).toHaveBeenCalledWith({ type: 'BGG_RATING_LOOKUP', title: 'Wingspan' });
   });
 
   it('4.1.2 — no fetch call is made from the content script', async () => {
-    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0' });
+    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0', gameUrl: 'https://boardgamegeek.com/boardgame/266192' });
     const fetchMock = vi.fn();
     globalThis.fetch = fetchMock;
     await detectAndMarkTitle();
@@ -39,7 +39,7 @@ describe('Story 4.1 — sendMessage contract', () => {
   });
 
   it('4.1.3 — does not throw when sendMessage resolves with ok:true', async () => {
-    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0' });
+    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0', gameUrl: 'https://boardgamegeek.com/boardgame/266192' });
     await expect(detectAndMarkTitle()).resolves.toBeUndefined();
   });
 
@@ -51,17 +51,21 @@ describe('Story 4.1 — sendMessage contract', () => {
 
 describe('Story 4.4 — inject BGG rating span', () => {
   it('4.4.1 — injects a <span data-bgg-rating> after the h1 with correct textContent', async () => {
-    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0' });
+    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0', gameUrl: 'https://boardgamegeek.com/boardgame/266192' });
     await detectAndMarkTitle();
     const h1 = document.querySelector('h1')!;
     const span = h1.nextElementSibling;
     expect(span).not.toBeNull();
     expect(span!.hasAttribute('data-bgg-rating')).toBe(true);
-    expect(span!.textContent).toBe('(8.0)');
+    expect(span!.textContent).toContain('(BGG: 8.0. ');
+    const link = span!.querySelector('a');
+    expect(link).not.toBeNull();
+    expect(link!.textContent).toBe('See more');
+    expect(link!.getAttribute('href')).toBe('https://boardgamegeek.com/boardgame/266192');
   });
 
   it('4.4.2 — injected span has correct inline styles', async () => {
-    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0' });
+    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0', gameUrl: 'https://boardgamegeek.com/boardgame/266192' });
     await detectAndMarkTitle();
     const h1 = document.querySelector('h1')!;
     const span = h1.nextElementSibling as HTMLElement;
@@ -71,7 +75,7 @@ describe('Story 4.4 — inject BGG rating span', () => {
   });
 
   it('4.4.3 — calling detectAndMarkTitle twice does not inject a second span', async () => {
-    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0' });
+    sendMessageMock.mockResolvedValue({ ok: true, rating: '8.0', gameUrl: 'https://boardgamegeek.com/boardgame/266192' });
     await detectAndMarkTitle();
     await detectAndMarkTitle();
     const spans = document.querySelectorAll('[data-bgg-rating]');

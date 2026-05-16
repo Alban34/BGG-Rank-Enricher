@@ -17,9 +17,11 @@ test.describe('Epic 8 — Multi-Shop Architecture (SHOP_CONFIGS) Workflow', () =
     // Wait for the extension to inject the rating span
     await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
 
-    // Assert the injected span text is in "(N.N)" format
+    // Assert the injected span text/link follows "(BGG: N.N. See more)"
     const textContent = await page.locator('[data-bgg-rating]').textContent();
-    expect(textContent).toMatch(/^\(\d+\.\d\)$/);
+    expect(textContent).toMatch(/^\(BGG:\s+[\d.]+\.\s+See more\)$/);
+    const linkHref = await page.locator('[data-bgg-rating] a').getAttribute('href');
+    expect(linkHref).toMatch(/^https:\/\/boardgamegeek\.com\/boardgame\/\d+$/);
 
     // Assert the product title h1 has been underlined by the content script
     const titleStyle = await page.locator('h1.product-title').evaluate(
