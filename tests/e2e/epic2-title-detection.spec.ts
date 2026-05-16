@@ -15,36 +15,14 @@
  * --load-extension.
  */
 
-import { test, expect, chromium } from '@playwright/test';
-import { execSync } from 'child_process';
-import { mkdtempSync, rmSync } from 'fs';
-import { join, resolve } from 'path';
-import { tmpdir } from 'os';
-
-const PROJECT_ROOT = resolve(process.cwd());
-const EXTENSION_DIR = resolve(PROJECT_ROOT, 'dist');
+import { test, expect } from './fixtures';
 const PRODUCT_URL = 'https://www.philibertnet.com/fr/matagot/73168-wingspan-3760146644991.html';
 
 test.describe('Epic 2 — Game Title Detection & Visual Confirmation', () => {
-  test.beforeAll(() => {
-    execSync('npm run build', {
-      cwd: PROJECT_ROOT,
-      stdio: 'inherit',
-    });
-  });
-
-  test('h1 on Philibertnet page receives blue underline from the content script', async () => {
+  test('h1 on Philibertnet page receives blue underline from the content script', async ({ extContext }) => {
     const consoleErrors: string[] = [];
 
-    const userDataDir = mkdtempSync(join(tmpdir(), 'pw-ext-'));
-    const context = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
-      args: [
-        `--disable-extensions-except=${EXTENSION_DIR}`,
-        `--load-extension=${EXTENSION_DIR}`,
-      ],
-    });
-
+    const context = extContext;
     const page = await context.newPage();
 
     // Collect errors emitted by any script running in the page context
@@ -59,45 +37,40 @@ test.describe('Epic 2 — Game Title Detection & Visual Confirmation', () => {
       consoleErrors.push(`[pageerror] ${err.message}`);
     });
 
-    try {
-      await page.goto(PRODUCT_URL, {
-        waitUntil: 'domcontentloaded',
-        timeout: 30_000,
-      });
+    await page.goto(PRODUCT_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
 
-      // document_idle fires after DOMContentLoaded + deferred scripts settle;
-      // an explicit wait ensures the content script has executed.
-      await page.waitForTimeout(2_000);
+    // document_idle fires after DOMContentLoaded + deferred scripts settle;
+    // an explicit wait ensures the content script has executed.
+    await page.waitForTimeout(2_000);
 
-      const h1 = page.locator('h1').first();
-      await h1.waitFor({ state: 'attached', timeout: 10_000 });
+    const h1 = page.locator('h1').first();
+    await h1.waitFor({ state: 'attached', timeout: 10_000 });
 
-      // Assert inline styles written by detectAndMarkTitle()
-      const textDecorationLine = await h1.evaluate(
-        (el: HTMLElement) => el.style.textDecorationLine,
-      );
-      const textDecorationColor = await h1.evaluate(
-        (el: HTMLElement) => el.style.textDecorationColor,
-      );
+    // Assert inline styles written by detectAndMarkTitle()
+    const textDecorationLine = await h1.evaluate(
+      (el: HTMLElement) => el.style.textDecorationLine,
+    );
+    const textDecorationColor = await h1.evaluate(
+      (el: HTMLElement) => el.style.textDecorationColor,
+    );
 
-      expect(textDecorationLine).toBe('underline');
-      expect(textDecorationColor).toBe('blue');
+    expect(textDecorationLine).toBe('underline');
+    expect(textDecorationColor).toBe('blue');
 
-      // Only flag errors that originate from the extension content script
-      // (the live site may emit unrelated third-party errors)
-      const extensionErrors = consoleErrors.filter(
-        (msg) =>
-          msg.includes('BGG') ||
-          msg.includes('bgg-rank') ||
-          msg.toLowerCase().includes('uncaught'),
-      );
-      expect(
-        extensionErrors,
-        'Extension must not emit console.error or throw uncaught exceptions',
-      ).toHaveLength(0);
-    } finally {
-      await context.close();
-      rmSync(userDataDir, { recursive: true, force: true });
-    }
+    // Only flag errors that originate from the extension content script
+    // (the live site may emit unrelated third-party errors)
+    const extensionErrors = consoleErrors.filter(
+      (msg) =>
+        msg.includes('BGG') ||
+        msg.includes('bgg-rank') ||
+        msg.toLowerCase().includes('uncaught'),
+    );
+    expect(
+      extensionErrors,
+      'Extension must not emit console.error or throw uncaught exceptions',
+    ).toHaveLength(0);
   });
 });

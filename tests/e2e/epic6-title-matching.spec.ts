@@ -18,14 +18,7 @@
  * --load-extension.
  */
 
-import { test, expect, chromium } from '@playwright/test';
-import { execSync } from 'child_process';
-import { mkdtempSync, rmSync } from 'fs';
-import { join, resolve } from 'path';
-import { tmpdir } from 'os';
-
-const PROJECT_ROOT = resolve(process.cwd());
-const EXTENSION_DIR = resolve(PROJECT_ROOT, 'dist');
+import { test, expect } from './fixtures';
 
 // Dune: Imperium – Immortality expansion page (French Philibertnet)
 const EXPANSION_URL =
@@ -37,81 +30,38 @@ const BASE_GAME_URL =
   // Title on page: "Dune : Imperium" → normalised to "Dune: Imperium" → single BGG fetch, no truncation
 
 test.describe('Epic 6 — Improved BGG Title Matching', () => {
-  test.beforeAll(() => {
-    execSync('npm run build', {
-      cwd: PROJECT_ROOT,
-      stdio: 'inherit',
-    });
-  });
-
-  test('injects BGG rating span for an expansion product page (Dune: Imperium – Immortality)', async () => {
-    const userDataDir = mkdtempSync(join(tmpdir(), 'pw-ext-epic6-expansion-'));
-    const context = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
-      args: [
-        `--disable-extensions-except=${EXTENSION_DIR}`,
-        `--load-extension=${EXTENSION_DIR}`,
-      ],
-    });
-
+  test('injects BGG rating span for an expansion product page (Dune: Imperium – Immortality)', async ({ extContext }) => {
+    const context = extContext;
     const page = await context.newPage();
 
-    // Visit BGG first so Cloudflare sets its bot-detection cookies in this
-    // browser profile — without these, service worker fetches return 403.
-    await page.goto('https://boardgamegeek.com/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.waitForTimeout(2_000);
-
-    try {
-      await page.goto(EXPANSION_URL, {
-        waitUntil: 'domcontentloaded',
-        timeout: 30_000,
-      });
-
-      // Allow up to 15 s for the service worker to resolve the expansion title
-      // (potentially via the truncation fallback) and for the content script to
-      // inject the rating span into the DOM.
-      await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
-
-      const textContent = await page.locator('[data-bgg-rating]').textContent();
-      expect(textContent).toMatch(/^\(\d+\.\d\)$/);
-    } finally {
-      await context.close();
-      rmSync(userDataDir, { recursive: true, force: true });
-    }
-  });
-
-  test('regression: injects BGG rating span for a base-game product page (Dune: Imperium)', async () => {
-    const userDataDir = mkdtempSync(join(tmpdir(), 'pw-ext-epic6-dune-base-'));
-    const context = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
-      args: [
-        `--disable-extensions-except=${EXTENSION_DIR}`,
-        `--load-extension=${EXTENSION_DIR}`,
-      ],
+    await page.goto(EXPANSION_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
     });
 
+    // Allow up to 15 s for the service worker to resolve the expansion title
+    // (potentially via the truncation fallback) and for the content script to
+    // inject the rating span into the DOM.
+    await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
+
+    const textContent = await page.locator('[data-bgg-rating]').textContent();
+    expect(textContent).toMatch(/^\(\d+\.\d\)$/);
+  });
+
+  test('regression: injects BGG rating span for a base-game product page (Dune: Imperium)', async ({ extContext }) => {
+    const context = extContext;
     const page = await context.newPage();
 
-    // Visit BGG first so Cloudflare sets its bot-detection cookies in this
-    // browser profile — without these, service worker fetches return 403.
-    await page.goto('https://boardgamegeek.com/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.waitForTimeout(2_000);
+    await page.goto(BASE_GAME_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
 
-    try {
-      await page.goto(BASE_GAME_URL, {
-        waitUntil: 'domcontentloaded',
-        timeout: 30_000,
-      });
+    // Allow up to 15 s for the service worker to query the BGG API and
+    // for the content script to inject the rating span into the DOM.
+    await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
 
-      // Allow up to 15 s for the service worker to query the BGG API and
-      // for the content script to inject the rating span into the DOM.
-      await page.waitForSelector('[data-bgg-rating]', { timeout: 15_000 });
-
-      const textContent = await page.locator('[data-bgg-rating]').textContent();
-      expect(textContent).toMatch(/^\(\d+\.\d\)$/);
-    } finally {
-      await context.close();
-      rmSync(userDataDir, { recursive: true, force: true });
-    }
+    const textContent = await page.locator('[data-bgg-rating]').textContent();
+    expect(textContent).toMatch(/^\(\d+\.\d\)$/);
   });
 });

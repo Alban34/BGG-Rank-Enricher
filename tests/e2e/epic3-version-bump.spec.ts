@@ -22,42 +22,24 @@
  *  the authoritative check.
  */
 
-import { test, expect, chromium } from '@playwright/test';
-import { execSync } from 'child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'fs';
-import { join, resolve } from 'path';
-import { tmpdir } from 'os';
+import { test, expect } from './fixtures';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { EXTENSION_DIR } from './constants';
 
-const PROJECT_ROOT = resolve(process.cwd());
-const EXTENSION_DIR = resolve(PROJECT_ROOT, 'dist');
 const PRODUCT_URL = 'https://www.philibertnet.com/en/';
 
 test.describe('Epic 3 — Release Version 1.0.0 Preparation', () => {
-  test.beforeAll(() => {
-    execSync('npm run build', {
-      cwd: PROJECT_ROOT,
-      stdio: 'inherit',
-    });
-  });
-
   test('dist/manifest.json reports version 1.0.0', () => {
     const raw = readFileSync(join(EXTENSION_DIR, 'manifest.json'), 'utf-8');
     const manifest = JSON.parse(raw) as { version: string };
     expect(manifest.version).toBe('1.0.0');
   });
 
-  test('extension loads in Chromium without errors on Philibertnet', async () => {
+  test('extension loads in Chromium without errors on Philibertnet', async ({ extContext }) => {
     const consoleErrors: string[] = [];
 
-    const userDataDir = mkdtempSync(join(tmpdir(), 'pw-ext-epic3-'));
-    const context = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
-      args: [
-        `--disable-extensions-except=${EXTENSION_DIR}`,
-        `--load-extension=${EXTENSION_DIR}`,
-      ],
-    });
-
+    const context = extContext;
     const page = await context.newPage();
 
     page.on('console', (msg) => {
@@ -70,29 +52,24 @@ test.describe('Epic 3 — Release Version 1.0.0 Preparation', () => {
       consoleErrors.push(`[pageerror] ${err.message}`);
     });
 
-    try {
-      await page.goto(PRODUCT_URL, {
-        waitUntil: 'domcontentloaded',
-        timeout: 30_000,
-      });
+    await page.goto(PRODUCT_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
 
-      // Allow document_idle scripts to settle
-      await page.waitForTimeout(2_000);
+    // Allow document_idle scripts to settle
+    await page.waitForTimeout(2_000);
 
-      // Filter to errors that originate from the extension
-      const extensionErrors = consoleErrors.filter(
-        (msg) =>
-          msg.includes('BGG') ||
-          msg.includes('bgg-rank') ||
-          msg.toLowerCase().includes('uncaught'),
-      );
-      expect(
-        extensionErrors,
-        'Extension must not emit console.error or throw uncaught exceptions',
-      ).toHaveLength(0);
-    } finally {
-      await context.close();
-      rmSync(userDataDir, { recursive: true, force: true });
-    }
+    // Filter to errors that originate from the extension
+    const extensionErrors = consoleErrors.filter(
+      (msg) =>
+        msg.includes('BGG') ||
+        msg.includes('bgg-rank') ||
+        msg.toLowerCase().includes('uncaught'),
+    );
+    expect(
+      extensionErrors,
+      'Extension must not emit console.error or throw uncaught exceptions',
+    ).toHaveLength(0);
   });
 });

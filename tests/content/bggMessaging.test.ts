@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectAndMarkTitle } from '../../src/content/index';
 
 const sendMessageMock = vi.fn();
 
 beforeEach(() => {
+  vi.stubGlobal('location', { hostname: 'www.philibertnet.com' });
+
   globalThis.chrome = {
     runtime: {
       sendMessage: sendMessageMock,
@@ -14,6 +16,10 @@ beforeEach(() => {
   document.body.innerHTML = '<h1 class="product-title">Wingspan</h1>';
   vi.spyOn(console, 'log').mockImplementation(() => {});
   sendMessageMock.mockReset();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('Story 4.1 — sendMessage contract', () => {

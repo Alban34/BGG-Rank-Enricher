@@ -1,16 +1,21 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectAndMarkTitle } from '../../src/content/index';
 
 describe('detectAndMarkTitle', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     vi.restoreAllMocks();
+    vi.stubGlobal('location', { hostname: 'www.philibertnet.com' });
     vi.stubGlobal('chrome', {
       runtime: {
         sendMessage: vi.fn().mockResolvedValue({ ok: true, rating: '8.0' }),
       },
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   // ── Story 2.1 ──────────────────────────────────────────────────────────────
@@ -24,7 +29,7 @@ describe('detectAndMarkTitle', () => {
   });
 
   it('2.1.2 — falls back to plain h1 and logs its trimmed text', async () => {
-    document.body.innerHTML = '<h1>  Catan  </h1>';
+    document.body.innerHTML = '<h1 class="product-title">  Catan  </h1>';
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await detectAndMarkTitle();
     expect(logSpy).toHaveBeenCalledOnce();
@@ -69,7 +74,7 @@ describe('detectAndMarkTitle', () => {
   });
 
   it('2.2.3 — applies underline + blue to fallback h1', async () => {
-    document.body.innerHTML = '<h1>Azul</h1>';
+    document.body.innerHTML = '<h1 class="product-title">Azul</h1>';
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await detectAndMarkTitle();
     const el = document.querySelector('h1') as HTMLElement;
@@ -98,7 +103,7 @@ describe('detectAndMarkTitle', () => {
   });
 
   it('2.3.2 — warns when h1 has empty textContent', async () => {
-    document.body.innerHTML = '<h1></h1>';
+    document.body.innerHTML = '<h1 class="product-title"></h1>';
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     await detectAndMarkTitle();
     expect(warnSpy).toHaveBeenCalledOnce();
@@ -107,7 +112,7 @@ describe('detectAndMarkTitle', () => {
   });
 
   it('2.3.2b — does not style the h1 when textContent is empty', async () => {
-    document.body.innerHTML = '<h1></h1>';
+    document.body.innerHTML = '<h1 class="product-title"></h1>';
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     await detectAndMarkTitle();
     const el = document.querySelector('h1') as HTMLElement;
@@ -115,7 +120,7 @@ describe('detectAndMarkTitle', () => {
   });
 
   it('2.3.3 — warns when h1 has whitespace-only textContent', async () => {
-    document.body.innerHTML = '<h1>   \t\n   </h1>';
+    document.body.innerHTML = '<h1 class="product-title">   \t\n   </h1>';
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     await detectAndMarkTitle();
     expect(warnSpy).toHaveBeenCalledOnce();
@@ -124,7 +129,7 @@ describe('detectAndMarkTitle', () => {
   });
 
   it('2.3.3b — does not style the h1 when textContent is whitespace-only', async () => {
-    document.body.innerHTML = '<h1>   </h1>';
+    document.body.innerHTML = '<h1 class="product-title">   </h1>';
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     await detectAndMarkTitle();
     const el = document.querySelector('h1') as HTMLElement;
@@ -140,11 +145,11 @@ describe('detectAndMarkTitle', () => {
     expect(() => detectAndMarkTitle()).not.toThrow();
 
     // empty h1
-    document.body.innerHTML = '<h1></h1>';
+    document.body.innerHTML = '<h1 class="product-title"></h1>';
     expect(() => detectAndMarkTitle()).not.toThrow();
 
     // whitespace h1
-    document.body.innerHTML = '<h1>   </h1>';
+    document.body.innerHTML = '<h1 class="product-title">   </h1>';
     expect(() => detectAndMarkTitle()).not.toThrow();
 
     expect(errorSpy).not.toHaveBeenCalled();

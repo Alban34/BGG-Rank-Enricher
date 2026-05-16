@@ -18,3 +18,4 @@ node_modules/
 # Playwright test artifacts
 test-results/
 /coverage
+tests/e2e/.auth/

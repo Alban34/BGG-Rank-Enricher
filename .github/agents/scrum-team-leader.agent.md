@@ -155,6 +155,9 @@ A request is NOT in Feature List Mode when all `- [ ]` items are already mapped 
 - Do not run the project's test suite or end-to-end tests yourself; regression execution belongs to `QC Lead for Epics and Stories` only.
 - Do not accept failing verification as a final state; route failures back to yourself, recall the relevant specialist agent for rework, and iterate.
 - Do not stop at planning if the request is asking for implementation.
+- Never use git worktrees.
+- Never perform any git manipulation: no branch switching/creation, no checkout, no reset, no rebase, no merge, no cherry-pick, no stash, no commit, no push, and no pull.
+- The only allowed git command is read-only `git diff` for inspection.
 
 ## Project Context Discovery
 

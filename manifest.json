@@ -3,7 +3,9 @@
   "name": "BGG Rank Enricher",
   "version": "1.0.0",
   "description": "Displays BoardGameGeek rankings on board game shop pages.",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://www.boardgamegeek.com/*",
     "https://boardgamegeek.com/*"
@@ -15,9 +17,22 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.philibertnet.com/*"
+        "https://www.philibertnet.com/*",
+        "https://www.espritjeu.com/*",
+        "https://www.ludum.fr/*",
+        "https://zatu.com/*",
+        "https://www.boardgamebliss.com/*",
+        "https://www.miniaturemarket.com/*",
+        "https://www.coolstuffinc.com/*",
+        "https://www.gamenerdz.com/*",
+        "https://www.okkazeo.com/*",
+        "https://www.ludifolie.com/*",
+        "https://cavernedugobelin.fr/*",
+        "https://www.cavernedugobelin.fr/*"
       ],
-      "js": ["src/content/index.ts"],
+      "js": [
+        "src/content/index.ts"
+      ],
       "run_at": "document_idle"
     }
   ],
